@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5;
+    height: 100vh;
+    margin: 0;
+  }
+
+  #cardContainer {
+    width: 80%;
+    max-width: 600px;              
+    display: flex;          /* 让里面的卡片居中 */
+    justify-content: center;
+    align-items: center;
+  }
+
+  .controls {
+    margin-top: 20px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  button {
+    padding: 8px 16px;
+    margin: 0 10px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .card {
+    background: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    line-height: 1.8;
+    font-size: 18px;
+    font-family: "宋体", serif;
+    text-align: justify;
+    margin: auto;
+  }
+
+  .word {
+    display: inline-block;
+    transition: opacity 0.5s ease-out;
+    cursor: pointer;
+  }
+
+  .bird {
+    position: absolute;
+    width: 40px;
+    height: auto;
+    pointer-events: none;
+  }
+
+  @keyframes fly {
+    0%   { transform: translate(0,0) rotate(var(--angle)); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) rotate(var(--angle)); opacity: 0; }
+  }
+
+  @keyframes return {
+    0%   { transform: translate(var(--dx), var(--dy)) rotate(var(--angle)); opacity: 0; }
+    100% { transform: translate(0,0) rotate(var(--angle)); opacity: 1; }
+  }
+</style>
+</head>
+
+
+<body>
+
+  <div id="cardContainer"></div>
+
+  <div class="controls">
+    <button id="prev">上一页</button>
+    <button id="next">下一页</button>
+  </div>
+  
+
+  <script>
+  const pages = ["cards/page1.html", "cards/page2.html", "cards/page3.html"];
+  let currentPage = 0;
+  let activeListeners = [];
+
+  function loadCard(index) {
+    fetch(pages[index])
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("cardContainer").innerHTML = html;
+        clearListeners();
+        bindBirdEffect();
+      });
+  }
+
+  function bindBirdEffect() {
+    document.querySelectorAll('.word').forEach(word => {
+      let bird = null, rect = null, flyFinished = false;
+
+      const enterHandler = () => {
+        if (bird) return;
+        rect = word.getBoundingClientRect();
+
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = 100 + Math.random() * 300;
+        const dx = Math.cos(angle) * distance + "px";
+        const dy = Math.sin(angle) * distance + "px";
+        const rotateAngle = (Math.random() * 60 - 30).toFixed(2) + "deg";
+        const flyDuration = (1 + Math.random()).toFixed(2) + "s";
+
+        bird = document.createElement('img');
+        bird.src = "FlyingBird.png";
+        bird.className = "bird";
+        bird.style.left = rect.left + "px";
+        bird.style.top = rect.top + "px";
+        bird.style.setProperty('--dx', dx);
+        bird.style.setProperty('--dy', dy);
+        bird.style.setProperty('--angle', rotateAngle);
+
+        document.body.appendChild(bird);
+
+        word.style.opacity = 0;
+        bird.style.animation = `fly ${flyDuration} forwards`;
+
+        bird.addEventListener('animationend', () => {
+          flyFinished = true;
+        }, { once: true });
+      };
+
+      const moveHandler = (e) => {
+        if (bird && rect && flyFinished) {
+          const buffer = 50;
+          const insideX = e.clientX >= rect.left - buffer && e.clientX <= rect.right + buffer;
+          const insideY = e.clientY >= rect.top - buffer && e.clientY <= rect.bottom + buffer;
+
+          if (!(insideX && insideY)) {
+            const returnDuration = (2 + Math.random() * 2).toFixed(2) + "s";
+            bird.style.animation = `return ${returnDuration} forwards`;
+            bird.addEventListener('animationend', () => {
+              bird.remove();
+              bird = null;
+              word.style.opacity = 1;
+              flyFinished = false;
+            }, { once: true });
+            rect = null;
+          }
+        }
+      };
+
+      word.addEventListener('mouseenter', enterHandler);
+      document.addEventListener('mousemove', moveHandler);
+
+      activeListeners.push({ word, enterHandler, moveHandler });
+    });
+  }
+
+  function clearListeners() {
+    activeListeners.forEach(({ word, enterHandler, moveHandler }) => {
+      word.removeEventListener('mouseenter', enterHandler);
+      document.removeEventListener('mousemove', moveHandler);
+    });
+    document.querySelectorAll('.bird').forEach(b => b.remove());
+    activeListeners = [];
+  }
+
+  document.getElementById('next').addEventListener('click', () => {
+    currentPage = (currentPage + 1) % pages.length;
+    loadCard(currentPage);
+  });
+
+  document.getElementById('prev').addEventListener('click', () => {
+    currentPage = (currentPage - 1 + pages.length) % pages.length;
+    loadCard(currentPage);
+  });
+
+  // 默认加载第一页
+  loadCard(currentPage);
+  </script>
+
+</body>
+</html>
